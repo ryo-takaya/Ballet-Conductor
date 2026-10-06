@@ -14,7 +14,7 @@ export default function Home() {
         </svg>
         <div className={styles.headerText}>
           <h1 className={styles.title}>Ballet Conductor</h1>
-          <p className={styles.lead}>レッスンの曲を、カットしたり速さを変えたり。ブラウザだけで編集できます。</p>
+          <p className={styles.lead}>レッスンの曲の、好きな区間だけ速さを変えられます。ブラウザだけで編集できます。</p>
         </div>
         <ThemeToggle />
       </header>

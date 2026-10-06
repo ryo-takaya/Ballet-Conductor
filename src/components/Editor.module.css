@@ -12,12 +12,32 @@
   box-shadow: 0 6px 0 var(--shadow);
 }
 
-.drop {
+.sectionTitle {
+  margin-bottom: 14px;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.sectionHead {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 14px;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.sectionHead .sectionTitle {
+  margin-bottom: 0;
+}
+
+.spaced {
+  margin-top: 14px;
+}
+
+.drop {
   border-style: dashed;
   transition: background 0.15s, border-color 0.15s;
 }
@@ -27,19 +47,15 @@
   border-color: var(--accent);
 }
 
-.dropText {
+.dropBody {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
 }
 
-.dropText strong {
-  font-size: 1.1rem;
-  overflow-wrap: anywhere;
-}
-
-.dropText span {
+.dropText {
   color: var(--muted);
   font-size: 0.9rem;
 }
@@ -175,8 +191,8 @@
   color: var(--sub-deep);
 }
 
-.card > .heading:first-child {
-  margin-top: 0;
+.heading {
+  font-weight: 700;
 }
 
 .selectionInfo {
@@ -222,16 +238,53 @@
   color: var(--sub-deep);
 }
 
-.exportCard {
-  display: flex;
-  justify-content: center;
+.emptySections {
+  margin-top: 16px;
+  padding: 20px;
+  border-radius: 16px;
+  border: 2px dashed var(--line);
+  color: var(--muted);
+  text-align: center;
 }
 
-.export {
-  width: 100%;
-  max-width: 360px;
-  min-height: 54px;
-  font-size: 1.05rem;
+.sectionList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 16px;
+  list-style: none;
+}
+
+.sectionItem {
+  padding: 16px;
+  border-radius: 18px;
+  border: 2px solid var(--line);
+  background: var(--wave-bg);
+  transition: border-color 0.15s;
+}
+
+.sectionItemActive {
+  border-color: var(--accent);
+}
+
+.sectionItemHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.sectionItemHead .selectionInfo {
+  margin-bottom: 0;
+}
+
+.sectionBadge {
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+  font-weight: 800;
+  font-size: 0.9rem;
 }
 
 .error {
@@ -290,4 +343,92 @@
     flex: 1 1 calc(50% - 5px);
     padding: 0 10px;
   }
+}
+
+.rangeInputs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.rangeTilde {
+  padding-bottom: 12px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.secondsField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.secondsLabel {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.secondsField:has(input) {
+  position: relative;
+}
+
+.secondsInput {
+  width: 7.5em;
+  min-height: 46px;
+  padding: 0 34px 0 14px;
+  border-radius: 14px;
+  border: 2px solid var(--line);
+  background: var(--button-bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 1.05rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.secondsInput:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.secondsUnit {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  color: var(--muted);
+  font-size: 0.85rem;
+  pointer-events: none;
+}
+
+@media (max-width: 520px) {
+  .rangeInputs > .button {
+    width: 100%;
+  }
+}
+
+.secondsInput {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.secondsInput::-webkit-inner-spin-button,
+.secondsInput::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.fieldError {
+  margin-top: 8px;
+  color: var(--danger);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.fieldNotice {
+  margin-top: 8px;
+  color: var(--accent-deep);
+  font-size: 0.85rem;
+  font-weight: 700;
 }

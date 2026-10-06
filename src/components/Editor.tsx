@@ -3,20 +3,20 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type WaveSurfer from "wavesurfer.js";
 import type RegionsPluginClass from "wavesurfer.js/dist/plugins/regions.esm.js";
-import {
-  createSampleWaltz,
-  cutRange,
-  encodeWav,
-  timeStretch,
-} from "@/lib/audio";
+import { createSampleWaltz, encodeWav } from "@/lib/audio";
 import styles from "./Editor.module.css";
 
-type Selection = { start: number; end: number };
 type RegionsPlugin = ReturnType<typeof RegionsPluginClass.create>;
 
+/** テンポを変える区間。位置は元の曲の時間（秒）で持つ */
+type Section = { id: string; start: number; end: number; rate: number };
+
+const TEMPO_PRESETS = [0.75, 0.9, 1, 1.1];
 // 波形の色はライト・ダークどちらの背景でも見えるものにしている
-const REGION_COLOR = "rgba(56, 182, 240, 0.25)";
-const MAX_HISTORY = 20;
+const REGION_COLOR = "rgba(56, 182, 240, 0.22)";
+const REGION_ACTIVE_COLOR = "rgba(56, 182, 240, 0.45)";
+const NEW_SECTION_LENGTH = 4;
+const MIN_SECTION_LENGTH = 0.05;
 
 function formatTime(sec: number) {
   if (!Number.isFinite(sec)) return "0:00.0";
@@ -25,8 +25,144 @@ function formatTime(sec: number) {
   return `${m}:${s.toFixed(1).padStart(4, "0")}`;
 }
 
-function baseName(name: string) {
-  return name.replace(/\.[^.]+$/, "") || "ballet";
+function sortSections(sections: Section[]) {
+  return [...sections].sort((a, b) => a.start - b.start);
+}
+
+/** 秒数の入力欄。入力中は文字のまま持ち、確定（フォーカスが外れる・Enter）で反映する */
+function SecondsInput({
+  value,
+  onCommit,
+  label,
+}: {
+  value: number;
+  onCommit: (value: number) => void;
+  label: string;
+}) {
+  const [text, setText] = useState(value.toFixed(1));
+  const commit = () => {
+    const parsed = Number(text);
+    if (text.trim() !== "" && Number.isFinite(parsed)) onCommit(parsed);
+    else setText(value.toFixed(1));
+  };
+  return (
+    <label className={styles.secondsField}>
+      <span className={styles.secondsLabel}>{label}</span>
+      <input
+        type="number"
+        inputMode="decimal"
+        min={0}
+        step={0.1}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") e.currentTarget.blur();
+        }}
+        className={styles.secondsInput}
+      />
+      <span className={styles.secondsUnit}>秒</span>
+    </label>
+  );
+}
+
+type Fitted = { start: number; end: number; startBy?: Section; endBy?: Section };
+
+/**
+ * 区間がほかの区間と重ならないように、隣の区間の端までで止める。
+ * prev は動かす前の区間（新しく作る区間のときは null）。どうしても入らないときは null を返す。
+ */
+function fitBetweenNeighbors(
+  others: Section[],
+  start: number,
+  end: number,
+  prev: Section | null,
+): Fitted | null {
+  const inside = (t: number) => others.find((o) => t > o.start && t < o.end);
+  let anchor = (start + end) / 2;
+  const hit = inside(anchor);
+  // 真ん中がほかの区間に入ってしまう場合は、元の位置（新しい区間ならその区間の後ろ）を基準にする
+  if (hit) anchor = prev ? (prev.start + prev.end) / 2 : hit.end + 1e-6;
+  if (inside(anchor)) return null;
+
+  let lo = 0;
+  let hi = Infinity;
+  let loBy: Section | undefined;
+  let hiBy: Section | undefined;
+  for (const o of others) {
+    if (o.end <= anchor && o.end >= lo) {
+      lo = o.end;
+      loBy = o;
+    }
+    if (o.start >= anchor && o.start < hi) {
+      hi = o.start;
+      hiBy = o;
+    }
+  }
+  const fittedStart = Math.max(start, lo);
+  const fittedEnd = Math.min(end, hi);
+  if (fittedEnd - fittedStart < MIN_SECTION_LENGTH) return null;
+  return {
+    start: fittedStart,
+    end: fittedEnd,
+    startBy: fittedStart > start + 1e-9 ? loBy : undefined,
+    endBy: fittedEnd < end - 1e-9 ? hiBy : undefined,
+  };
+}
+
+/** 重なりを避けて範囲を変えたときに、利用者に伝える文 */
+function describeFit(fitted: Fitted, id: string, others: Section[]) {
+  if (!fitted.startBy && !fitted.endBy) return null;
+  const all = sortSections([...others, { id, start: fitted.start, end: fitted.end, rate: 1 }]);
+  const label = (s: Section) => `区間${all.findIndex((x) => x.id === s.id) + 1}`;
+  const sec = (t: number) => `${t.toFixed(1)}秒`;
+  if (fitted.startBy && fitted.endBy) {
+    return `${label(fitted.startBy)}・${label(fitted.endBy)}と重なるため、${sec(fitted.start)}〜${sec(fitted.end)}にしました。`;
+  }
+  if (fitted.startBy) return `${label(fitted.startBy)}と重なるため、${sec(fitted.start)}からにしました。`;
+  return `${label(fitted.endBy!)}と重なるため、${sec(fitted.end)}までにしました。`;
+}
+
+const OVERLAP_MESSAGE = "ほかの区間と重なるため、この範囲にはできません。";
+
+function TempoControl({
+  value,
+  onChange,
+  label,
+}: {
+  value: number;
+  onChange: (value: number) => void;
+  label: string;
+}) {
+  return (
+    <>
+      <div className={styles.tempoRow}>
+        <input
+          type="range"
+          min={0.5}
+          max={1.5}
+          step={0.05}
+          value={value}
+          onChange={(e) => onChange(Number(e.target.value))}
+          className={styles.tempoSlider}
+          aria-label={label}
+        />
+        <span className={styles.tempoValue}>{Math.round(value * 100)}%</span>
+      </div>
+      <div className={styles.controls}>
+        {TEMPO_PRESETS.map((preset) => (
+          <button
+            key={preset}
+            type="button"
+            className={`${styles.chip} ${Math.abs(value - preset) < 1e-3 ? styles.chipActive : ""}`}
+            onClick={() => onChange(preset)}
+          >
+            {preset === 1 ? "もとの速さ" : `${Math.round(preset * 100)}%`}
+          </button>
+        ))}
+      </div>
+    </>
+  );
 }
 
 export default function Editor() {
@@ -34,20 +170,43 @@ export default function Editor() {
   const wsRef = useRef<WaveSurfer | null>(null);
   const regionsRef = useRef<RegionsPlugin | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
-  const rateRef = useRef(1);
+  const sectionsRef = useRef<Section[]>([]);
+  const appliedRateRef = useRef(1);
 
   const [buffer, setBuffer] = useState<AudioBuffer | null>(null);
-  const [history, setHistory] = useState<AudioBuffer[]>([]);
   const [fileName, setFileName] = useState("");
-  const [selection, setSelection] = useState<Selection | null>(null);
+  const [sections, setSections] = useState<Section[]>([]);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [sectionsVersion, setSectionsVersion] = useState(0);
+  const [sectionNotice, setSectionNotice] = useState<{
+    id: string;
+    message: string;
+    kind: "error" | "info";
+  } | null>(null);
+  const [addNotice, setAddNotice] = useState("");
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
-  const [rate, setRate] = useState(1);
   const [zoom, setZoom] = useState(0);
   const [waveReady, setWaveReady] = useState(false);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [dragOver, setDragOver] = useState(false);
+
+  useEffect(() => {
+    sectionsRef.current = sections;
+  }, [sections]);
+
+  // 再生位置がどの区間にあるかを見て、その区間のテンポで再生する
+  const syncPlaybackRate = useCallback((time: number) => {
+    const ws = wsRef.current;
+    if (!ws) return;
+    const section = sectionsRef.current.find((s) => time >= s.start && time < s.end);
+    const rate = section?.rate ?? 1;
+    if (Math.abs(rate - appliedRateRef.current) > 1e-3) {
+      appliedRateRef.current = rate;
+      ws.setPlaybackRate(rate, true);
+    }
+  }, []);
 
   // wavesurfer は画面表示後にブラウザ側でだけ読み込む
   useEffect(() => {
@@ -75,24 +234,62 @@ export default function Editor() {
         plugins: [regions],
       });
 
+      // 波形をなぞるたびに区間が 1 つ増える
       regions.enableDragSelection({ color: REGION_COLOR });
+      // 区間を作る・動かすときは、ほかの区間と重ならないように端をそろえる
       regions.on("region-created", (region) => {
-        for (const r of regions.getRegions()) if (r !== region) r.remove();
-        setSelection({ start: region.start, end: region.end });
+        const others = sectionsRef.current.filter((s) => s.id !== region.id);
+        const fitted = fitBetweenNeighbors(others, region.start, region.end, null);
+        if (!fitted) {
+          region.remove();
+          setAddNotice("ほかの区間と重なるため、ここには区間を追加できません。");
+          return;
+        }
+        setAddNotice("");
+        if (fitted.start !== region.start || fitted.end !== region.end) {
+          region.setOptions({ start: fitted.start, end: fitted.end });
+        }
+        const added = { id: region.id, start: fitted.start, end: fitted.end, rate: 1 };
+        sectionsRef.current = sortSections([...others, added]);
+        setSections(sectionsRef.current);
+        setActiveId(region.id);
+        const message = describeFit(fitted, region.id, others);
+        setSectionNotice(message ? { id: region.id, message, kind: "info" } : null);
       });
       regions.on("region-updated", (region) => {
-        setSelection({ start: region.start, end: region.end });
+        const prev = sectionsRef.current.find((s) => s.id === region.id);
+        if (!prev) return;
+        const others = sectionsRef.current.filter((s) => s.id !== region.id);
+        const fitted = fitBetweenNeighbors(others, region.start, region.end, prev);
+        setActiveId(region.id);
+        if (!fitted) {
+          region.setOptions({ start: prev.start, end: prev.end });
+          setSectionNotice({ id: region.id, message: OVERLAP_MESSAGE, kind: "error" });
+          return;
+        }
+        if (fitted.start !== region.start || fitted.end !== region.end) {
+          region.setOptions({ start: fitted.start, end: fitted.end });
+        }
+        sectionsRef.current = sortSections([...others, { ...prev, start: fitted.start, end: fitted.end }]);
+        setSections(sectionsRef.current);
+        const message = describeFit(fitted, region.id, others);
+        setSectionNotice(message ? { id: region.id, message, kind: "info" } : null);
       });
-      regions.on("region-removed", () => {
-        if (regions.getRegions().length === 0) setSelection(null);
+      regions.on("region-removed", (region) => {
+        setSections((prev) => prev.filter((s) => s.id !== region.id));
       });
+      regions.on("region-clicked", (region) => setActiveId(region.id));
 
       ws.on("play", () => setIsPlaying(true));
       ws.on("pause", () => setIsPlaying(false));
       ws.on("finish", () => setIsPlaying(false));
-      ws.on("timeupdate", (t) => setCurrentTime(t));
+      ws.on("timeupdate", (t) => {
+        setCurrentTime(t);
+        syncPlaybackRate(t);
+      });
       ws.on("ready", () => {
-        ws.setPlaybackRate(rateRef.current, true);
+        appliedRateRef.current = 1;
+        ws.setPlaybackRate(1, true);
         setWaveReady(true);
       });
 
@@ -106,14 +303,15 @@ export default function Editor() {
       wsRef.current = null;
       regionsRef.current = null;
     };
-  }, []);
+  }, [syncPlaybackRate]);
 
-  // バッファが変わるたびに波形を描き直す
+  // 曲が変わるたびに波形を描き直し、区間をリセットする
   useEffect(() => {
     const ws = wsRef.current;
     if (!ws || !buffer) return;
     regionsRef.current?.clearRegions();
-    setSelection(null);
+    setSections([]);
+    setActiveId(null);
     setCurrentTime(0);
     setWaveReady(false);
     ws.loadBlob(encodeWav(buffer)).catch(() => {});
@@ -123,15 +321,22 @@ export default function Editor() {
     if (wsRef.current && waveReady) wsRef.current.zoom(zoom);
   }, [zoom, waveReady]);
 
+  // 波形上の区間に番号を表示し、選んでいる区間を濃くする
+  useEffect(() => {
+    const regions = regionsRef.current;
+    if (!regions) return;
+    sections.forEach((s, i) => {
+      const region = regions.getRegions().find((r) => r.id === s.id);
+      region?.setOptions({
+        content: String(i + 1),
+        color: s.id === activeId ? REGION_ACTIVE_COLOR : REGION_COLOR,
+      });
+    });
+  }, [sections, activeId]);
+
   const getAudioContext = () => {
     if (!audioCtxRef.current) audioCtxRef.current = new AudioContext();
     return audioCtxRef.current;
-  };
-
-  const loadNewBuffer = (next: AudioBuffer, name: string) => {
-    setHistory([]);
-    setFileName(name);
-    setBuffer(next);
   };
 
   const handleFile = async (file: File | undefined) => {
@@ -141,7 +346,8 @@ export default function Editor() {
     try {
       const data = await file.arrayBuffer();
       const decoded = await getAudioContext().decodeAudioData(data);
-      loadNewBuffer(decoded, file.name);
+      setFileName(file.name);
+      setBuffer(decoded);
     } catch {
       setError("このファイルは読み込めませんでした。MP3・WAV・M4A などの音声ファイルを選んでください。");
     } finally {
@@ -151,67 +357,71 @@ export default function Editor() {
 
   const loadSample = () => {
     setError("");
-    loadNewBuffer(createSampleWaltz(), "sample-waltz.wav");
-  };
-
-  const applyEdit = (edit: (b: AudioBuffer) => AudioBuffer) => {
-    if (!buffer) return;
-    wsRef.current?.pause();
-    setHistory((h) => [...h.slice(-(MAX_HISTORY - 1)), buffer]);
-    setBuffer(edit(buffer));
-  };
-
-  const handleCut = () => {
-    if (!selection) return;
-    applyEdit((b) => cutRange(b, selection.start, selection.end));
-  };
-
-  const handleUndo = () => {
-    if (history.length === 0) return;
-    wsRef.current?.pause();
-    setBuffer(history[history.length - 1]);
-    setHistory((h) => h.slice(0, -1));
+    setFileName("sample-waltz.wav");
+    setBuffer(createSampleWaltz());
   };
 
   const togglePlay = useCallback(() => {
     wsRef.current?.playPause();
   }, []);
 
-  const playSelection = () => {
-    regionsRef.current?.getRegions()[0]?.play(true);
+  const findRegion = (id: string) => regionsRef.current?.getRegions().find((r) => r.id === id);
+
+  // 再生位置から NEW_SECTION_LENGTH 秒の区間を追加する
+  const addSection = () => {
+    const regions = regionsRef.current;
+    if (!regions || !buffer) return;
+    const start = Math.min(wsRef.current?.getCurrentTime() ?? 0, Math.max(0, buffer.duration - 1));
+    const end = Math.min(buffer.duration, start + NEW_SECTION_LENGTH);
+    regions.addRegion({ start, end, color: REGION_COLOR });
+    // 重なって入らなかった場合は region-created 側でお知らせを出す
   };
 
-  const clearSelection = () => {
-    regionsRef.current?.clearRegions();
-    setSelection(null);
+  const updateSection = (id: string, patch: Partial<Omit<Section, "id">>) => {
+    setSections((prev) => sortSections(prev.map((s) => (s.id === id ? { ...s, ...patch } : s))));
   };
 
-  const handleRate = (value: number) => {
-    rateRef.current = value;
-    setRate(value);
-    wsRef.current?.setPlaybackRate(value, true);
-  };
-
-  const handleExport = () => {
+  // 入力された秒数で区間の開始・終了を変える。おかしな値のときは元に戻す
+  const setSectionTime = (section: Section, edge: "start" | "end", value: number) => {
     if (!buffer) return;
-    setBusy("書き出しの準備をしています…");
-    // 描画を先に反映させてから重い処理を行う
-    setTimeout(() => {
-      try {
-        const stretched = timeStretch(buffer, rate);
-        const url = URL.createObjectURL(encodeWav(stretched));
-        const a = document.createElement("a");
-        a.href = url;
-        const tempo = rate === 1 ? "" : `_x${rate.toFixed(2)}`;
-        a.download = `${baseName(fileName)}_edit${tempo}.wav`;
-        a.click();
-        setTimeout(() => URL.revokeObjectURL(url), 10_000);
-      } catch {
-        setError("書き出しに失敗しました。もう一度お試しください。");
-      } finally {
-        setBusy("");
-      }
-    }, 50);
+    const t = Math.round(Math.min(Math.max(0, value), buffer.duration) * 10) / 10;
+    const start = edge === "start" ? t : section.start;
+    const end = edge === "end" ? t : section.end;
+    setActiveId(section.id);
+    // 入力欄を作り直して、表示を実際の値にそろえる
+    setSectionsVersion((v) => v + 1);
+    if (end - start < MIN_SECTION_LENGTH) {
+      setSectionNotice({ id: section.id, message: "終わりの秒数は、始まりの秒数より後にしてください。", kind: "error" });
+      return;
+    }
+    const others = sections.filter((s) => s.id !== section.id);
+    const fitted = fitBetweenNeighbors(others, start, end, section);
+    if (!fitted) {
+      setSectionNotice({ id: section.id, message: OVERLAP_MESSAGE, kind: "error" });
+      return;
+    }
+    const message = describeFit(fitted, section.id, others);
+    setSectionNotice(message ? { id: section.id, message, kind: "info" } : null);
+    findRegion(section.id)?.setOptions({ start: fitted.start, end: fitted.end });
+    updateSection(section.id, { start: fitted.start, end: fitted.end });
+  };
+
+  const setSectionRate = (section: Section, rate: number) => {
+    updateSection(section.id, { rate });
+    setActiveId(section.id);
+    // 再生中にその区間にいる場合は、すぐに新しいテンポにする
+    sectionsRef.current = sectionsRef.current.map((s) => (s.id === section.id ? { ...s, rate } : s));
+    syncPlaybackRate(wsRef.current?.getCurrentTime() ?? 0);
+  };
+
+  const playSection = (section: Section) => {
+    setActiveId(section.id);
+    findRegion(section.id)?.play(true);
+  };
+
+  const removeSection = (section: Section) => {
+    findRegion(section.id)?.remove();
+    if (activeId === section.id) setActiveId(null);
   };
 
   // スペースキーで再生・一時停止
@@ -244,36 +454,35 @@ export default function Editor() {
           handleFile(e.dataTransfer.files[0]);
         }}
       >
-        <div className={styles.dropText}>
-          <strong>{hasAudio ? fileName : "曲をえらんでください"}</strong>
-          <span>
-            {hasAudio
-              ? `長さ ${formatTime(duration)}`
-              : "ファイルをここにドラッグするか、ボタンから選べます"}
-          </span>
-        </div>
-        <div className={styles.dropActions}>
-          <label className={`${styles.button} ${styles.primary}`}>
-            ファイルを選ぶ
-            <input
-              type="file"
-              accept="audio/*"
-              className={styles.hiddenInput}
-              onChange={(e) => {
-                handleFile(e.target.files?.[0]);
-                e.target.value = "";
-              }}
-            />
-          </label>
-          <button type="button" className={styles.button} onClick={loadSample}>
-            サンプル曲で試す
-          </button>
+        <h2 className={styles.sectionTitle}>① 曲選択</h2>
+        <div className={styles.dropBody}>
+          <p className={styles.dropText}>ファイルをここにドラッグするか、ボタンから選べます。</p>
+          <div className={styles.dropActions}>
+            <label className={`${styles.button} ${styles.primary}`}>
+              ファイルを選ぶ
+              <input
+                type="file"
+                accept="audio/*"
+                className={styles.hiddenInput}
+                onChange={(e) => {
+                  handleFile(e.target.files?.[0]);
+                  e.target.value = "";
+                }}
+              />
+            </label>
+            <button type="button" className={styles.button} onClick={loadSample}>
+              サンプル曲で試す
+            </button>
+          </div>
         </div>
       </section>
 
       {error && <p className={styles.error}>{error}</p>}
 
       <section className={styles.card}>
+        <h2 className={styles.sectionTitle}>
+          ② {hasAudio ? `『${fileName}』` : "曲が選ばれていません"}
+        </h2>
         <div className={styles.waveWrap}>
           <div ref={waveRef} className={styles.wave} />
           {!hasAudio && <p className={styles.waveEmpty}>ここに波形が表示されます</p>}
@@ -295,13 +504,7 @@ export default function Editor() {
             />
           </label>
         </div>
-        <p className={styles.hint}>
-          波形の上をなぞると範囲を選べます。端をつまむと範囲を調整できます。
-        </p>
-      </section>
-
-      <section className={styles.card}>
-        <div className={styles.controls}>
+        <div className={`${styles.controls} ${styles.spaced}`}>
           <button
             type="button"
             className={`${styles.button} ${styles.play}`}
@@ -311,69 +514,76 @@ export default function Editor() {
           >
             {isPlaying ? "❚❚ 一時停止" : "▶ 再生"}
           </button>
-          <button type="button" className={styles.button} onClick={handleUndo} disabled={history.length === 0}>
-            ↶ 元に戻す
-          </button>
-        </div>
-
-        <h2 className={styles.heading}>えらんだ範囲</h2>
-        <p className={styles.selectionInfo}>
-          {selection
-            ? `${formatTime(selection.start)} 〜 ${formatTime(selection.end)}（${formatTime(selection.end - selection.start)}）`
-            : "まだ選ばれていません"}
-        </p>
-        <div className={styles.controls}>
-          <button type="button" className={styles.button} onClick={playSelection} disabled={!selection}>
-            ▶ 範囲を再生
-          </button>
-          <button type="button" className={`${styles.button} ${styles.danger}`} onClick={handleCut} disabled={!selection}>
-            ✂ カット
-          </button>
-          <button type="button" className={styles.button} onClick={clearSelection} disabled={!selection}>
-            選択を解除
-          </button>
         </div>
       </section>
 
       <section className={styles.card}>
-        <h2 className={styles.heading}>テンポ</h2>
-        <div className={styles.tempoRow}>
-          <input
-            type="range"
-            min={0.5}
-            max={1.5}
-            step={0.05}
-            value={rate}
-            onChange={(e) => handleRate(Number(e.target.value))}
-            className={styles.tempoSlider}
-            aria-label="テンポ"
-          />
-          <span className={styles.tempoValue}>{Math.round(rate * 100)}%</span>
+        <div className={styles.sectionHead}>
+          <h2 className={styles.sectionTitle}>③ 変更区間の編集</h2>
+          <button type="button" className={`${styles.button} ${styles.primary}`} onClick={addSection} disabled={!hasAudio}>
+            ＋ 変更区間の追加
+          </button>
         </div>
-        <div className={styles.controls}>
-          {[0.75, 0.9, 1, 1.1].map((preset) => (
-            <button
-              key={preset}
-              type="button"
-              className={`${styles.chip} ${Math.abs(rate - preset) < 1e-3 ? styles.chipActive : ""}`}
-              onClick={() => handleRate(preset)}
-            >
-              {preset === 1 ? "もとの速さ" : `${Math.round(preset * 100)}%`}
-            </button>
-          ))}
-        </div>
-        <p className={styles.hint}>音の高さは変えずに速さだけを変えます。書き出しにも反映されます。</p>
-      </section>
+        <p className={styles.hint}>
+          再生位置から区間を追加します。②の波形の上をなぞっても区間を追加できます。範囲は秒数で入力するか、波形の上で端をつまんで調整できます。区間の中は、設定したテンポで再生されます。
+        </p>
 
-      <section className={`${styles.card} ${styles.exportCard}`}>
-        <button
-          type="button"
-          className={`${styles.button} ${styles.primary} ${styles.export}`}
-          onClick={handleExport}
-          disabled={!hasAudio || busy !== ""}
-        >
-          WAV で書き出す
-        </button>
+        {addNotice && <p className={styles.fieldError}>{addNotice}</p>}
+
+        {sections.length === 0 ? (
+          <p className={styles.emptySections}>まだ変更区間はありません</p>
+        ) : (
+          <ol className={styles.sectionList}>
+            {sections.map((s, i) => (
+              <li
+                key={s.id}
+                className={`${styles.sectionItem} ${s.id === activeId ? styles.sectionItemActive : ""}`}
+                onFocus={() => setActiveId(s.id)}
+              >
+                <div className={styles.sectionItemHead}>
+                  <span className={styles.sectionBadge}>区間{i + 1}</span>
+                  <span className={styles.selectionInfo}>
+                    {formatTime(s.start)} 〜 {formatTime(s.end)}（{formatTime(s.end - s.start)}）
+                  </span>
+                </div>
+
+                <h3 className={styles.heading}>範囲を選択する</h3>
+                <div className={styles.rangeInputs}>
+                  <SecondsInput
+                    key={`start-${s.start}-${sectionsVersion}`}
+                    value={s.start}
+                    label="始まり"
+                    onCommit={(v) => setSectionTime(s, "start", v)}
+                  />
+                  <span className={styles.rangeTilde}>〜</span>
+                  <SecondsInput
+                    key={`end-${s.end}-${sectionsVersion}`}
+                    value={s.end}
+                    label="終わり"
+                    onCommit={(v) => setSectionTime(s, "end", v)}
+                  />
+                  <button type="button" className={styles.button} onClick={() => playSection(s)}>
+                    ▶ 区間を再生
+                  </button>
+                </div>
+                {sectionNotice?.id === s.id && (
+                  <p className={sectionNotice.kind === "error" ? styles.fieldError : styles.fieldNotice}>
+                    {sectionNotice.message}
+                  </p>
+                )}
+
+                <h3 className={styles.heading}>テンポを変更する</h3>
+                <TempoControl value={s.rate} onChange={(rate) => setSectionRate(s, rate)} label={`区間${i + 1}のテンポ`} />
+
+                <div className={`${styles.controls} ${styles.spaced}`}>
+                  <button type="button" className={styles.button} onClick={() => removeSection(s)}>
+                    選択を解除する
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ol>
+        )}
       </section>
 
       {busy && (

@@ -3,32 +3,30 @@
 import { useSyncExternalStore } from "react";
 import styles from "./ThemeToggle.module.css";
 
-type Theme = "system" | "light" | "dark";
+type Theme = "light" | "dark";
 
 const STORAGE_KEY = "theme";
 const OPTIONS: { value: Theme; label: string }[] = [
   { value: "light", label: "ライト" },
   { value: "dark", label: "ダーク" },
-  { value: "system", label: "自動" },
 ];
 
 const listeners = new Set<() => void>();
 
+// まだ選んでいないときは、端末の設定に合わせた方を選択済みにする
 function readTheme(): Theme {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved === "light" || saved === "dark") return saved;
   } catch {}
-  return "system";
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
 function applyTheme(theme: Theme) {
   try {
-    if (theme === "system") localStorage.removeItem(STORAGE_KEY);
-    else localStorage.setItem(STORAGE_KEY, theme);
+    localStorage.setItem(STORAGE_KEY, theme);
   } catch {}
-  if (theme === "system") document.documentElement.removeAttribute("data-theme");
-  else document.documentElement.setAttribute("data-theme", theme);
+  document.documentElement.setAttribute("data-theme", theme);
   listeners.forEach((l) => l());
 }
 
@@ -38,7 +36,7 @@ function subscribe(listener: () => void) {
 }
 
 export default function ThemeToggle() {
-  const theme = useSyncExternalStore(subscribe, readTheme, () => "system" as Theme);
+  const theme = useSyncExternalStore(subscribe, readTheme, () => "light" as Theme);
 
   return (
     <div className={styles.toggle} role="radiogroup" aria-label="表示テーマ">

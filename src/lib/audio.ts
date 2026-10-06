@@ -18,19 +18,6 @@ function clampRange(buffer: AudioBuffer, start: number, end: number) {
   return [s, e] as const;
 }
 
-/** start〜end 秒を削除した新しいバッファを返す */
-export function cutRange(buffer: AudioBuffer, start: number, end: number): AudioBuffer {
-  const [s, e] = clampRange(buffer, start, end);
-  const out = createBuffer(buffer.numberOfChannels, buffer.length - (e - s), buffer.sampleRate);
-  for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
-    const src = buffer.getChannelData(ch);
-    const dst = out.getChannelData(ch);
-    dst.set(src.subarray(0, s), 0);
-    dst.set(src.subarray(e), s);
-  }
-  return out;
-}
-
 /** start〜end 秒だけを残した新しいバッファを返す */
 export function keepRange(buffer: AudioBuffer, start: number, end: number): AudioBuffer {
   const [s, e] = clampRange(buffer, start, end);
@@ -214,4 +201,39 @@ export function createSampleWaltz(sampleRate = 44100): AudioBuffer {
     pluck(root + 19, barStart + 2 * beat, beat * 0.5, 0.07, -0.1);
   }
   return buffer;
+}
+
+/** start〜end 秒の区間だけテンポを変えた新しいバッファを返す（前後はそのまま） */
+export function stretchRange(
+  buffer: AudioBuffer,
+  start: number,
+  end: number,
+  rate: number,
+): AudioBuffer {
+  const [s, e] = clampRange(buffer, start, end);
+  if (e - s < 2048 || Math.abs(rate - 1) < 1e-3) return buffer;
+
+  const middle = timeStretch(keepRange(buffer, start, end), rate);
+  const out = createBuffer(
+    buffer.numberOfChannels,
+    s + middle.length + (buffer.length - e),
+    buffer.sampleRate,
+  );
+  // つなぎ目のプチッという音を防ぐための短いクロスフェード
+  const fade = Math.min(Math.floor(buffer.sampleRate * 0.005), Math.floor(middle.length / 4));
+  for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
+    const src = buffer.getChannelData(ch);
+    const mid = middle.getChannelData(ch);
+    const dst = out.getChannelData(ch);
+    dst.set(src.subarray(0, s), 0);
+    dst.set(mid, s);
+    dst.set(src.subarray(e), s + mid.length);
+    for (let i = 0; i < fade; i++) {
+      const g = i / fade;
+      if (s > 0) dst[s + i] = mid[i] * g + src[s + i] * (1 - g);
+      const j = s + mid.length - fade + i;
+      if (e < buffer.length) dst[j] = mid[mid.length - fade + i] * (1 - g) + src[e - fade + i] * g;
+    }
+  }
+  return out;
 }
