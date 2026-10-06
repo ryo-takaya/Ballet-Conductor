@@ -1,0 +1,119 @@
+/* ライトテーマ（白と水色） */
+:root {
+  color-scheme: light;
+  --bg: #f3faff;
+  --glow-1: #dff3ff;
+  --glow-2: #e8f6fd;
+  --card: #ffffff;
+  --text: #1d3a57;
+  --muted: #6a88a5;
+  --line: #d4ebf8;
+  --shadow: #e2f2fb;
+  --accent: #3bb4ee;
+  --accent-deep: #1593d3;
+  --accent-soft: #e3f5ff;
+  --sub: #6cc3e8;
+  --sub-deep: #2f9bcc;
+  --sub-soft: #eaf6fc;
+  --on-accent: #ffffff;
+  --button-bg: #ffffff;
+  --wave-bg: #f6fbff;
+  --danger: #e0577d;
+  --danger-soft: #fff1f4;
+  --toast-bg: #1d3a57;
+  --toast-text: #ffffff;
+  --fill-primary: #0c80bd;
+  --fill-primary-press: #08679a;
+  --fill-play: #2b7fb0;
+  --fill-play-press: #1f6690;
+}
+
+/* ダークテーマ（紺に水色のアクセント） */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0c1a28;
+    --glow-1: #10324a;
+    --glow-2: #0f2a40;
+    --card: #12263a;
+    --text: #e2f2fc;
+    --muted: #8eb2cc;
+    --line: #21415c;
+    --shadow: #08131e;
+    --accent: #45c1f5;
+    --accent-deep: #2aa5dc;
+    --accent-soft: #143a52;
+    --sub: #3d9fd0;
+    --sub-deep: #2b86b5;
+    --sub-soft: #18334b;
+    --on-accent: #ffffff;
+    --button-bg: #172f46;
+    --wave-bg: #0e2233;
+    --danger: #ff8aa8;
+    --danger-soft: #3a1c28;
+    --toast-bg: #e2f2fc;
+    --toast-text: #0c1a28;
+    --fill-primary: #1a7fb5;
+    --fill-primary-press: #135f88;
+    --fill-play: #2f6f9e;
+    --fill-play-press: #24587e;
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0c1a28;
+  --glow-1: #10324a;
+  --glow-2: #0f2a40;
+  --card: #12263a;
+  --text: #e2f2fc;
+  --muted: #8eb2cc;
+  --line: #21415c;
+  --shadow: #08131e;
+  --accent: #45c1f5;
+  --accent-deep: #2aa5dc;
+  --accent-soft: #143a52;
+  --sub: #3d9fd0;
+  --sub-deep: #2b86b5;
+  --sub-soft: #18334b;
+  --on-accent: #ffffff;
+  --button-bg: #172f46;
+  --wave-bg: #0e2233;
+  --danger: #ff8aa8;
+  --danger-soft: #3a1c28;
+  --toast-bg: #e2f2fc;
+  --toast-text: #0c1a28;
+  --fill-primary: #1a7fb5;
+  --fill-primary-press: #135f88;
+  --fill-play: #2f6f9e;
+  --fill-play-press: #24587e;
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+body {
+  min-height: 100vh;
+  color: var(--text);
+  background:
+    radial-gradient(circle at 10% 0%, var(--glow-1) 0, transparent 40%),
+    radial-gradient(circle at 100% 20%, var(--glow-2) 0, transparent 35%),
+    var(--bg);
+  font-family: var(--font-rounded), "Hiragino Maru Gothic ProN", "Hiragino Sans", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+input[type="range"] {
+  accent-color: var(--accent);
+  min-width: 0;
+}

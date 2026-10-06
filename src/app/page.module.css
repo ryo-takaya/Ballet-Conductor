@@ -1,0 +1,65 @@
+.main {
+  width: 100%;
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 28px 16px 48px;
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.headerText {
+  flex: 1;
+  min-width: 220px;
+}
+
+.ribbon,
+.ribbonTail,
+.ribbonKnot {
+  stroke: var(--accent-deep);
+}
+
+.ribbon {
+  fill: var(--accent-soft);
+}
+
+.ribbonTail {
+  fill: var(--sub-soft);
+}
+
+.ribbonKnot {
+  fill: var(--accent);
+}
+
+.logo {
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+}
+
+.title {
+  font-size: clamp(1.5rem, 5vw, 2rem);
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  color: var(--accent-deep);
+}
+
+.lead {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.footer {
+  margin-top: 24px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.6;
+}

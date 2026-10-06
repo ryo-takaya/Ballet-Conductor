@@ -1,0 +1,21 @@
+services:
+  web:
+    build: .
+    ports:
+      # ホスト側のポートは WEB_PORT で変更可能（3000 は他のコンテナと衝突しやすいので 3100 を既定に）
+      - "${WEB_PORT:-3100}:3000"
+    volumes:
+      # ソースはホストからマウントしてホットリロードを効かせる
+      - .:/app
+      # node_modules と .next はコンテナ側の名前付きボリュームに置き、ホストを汚さない
+      - node_modules:/app/node_modules
+      - next_cache:/app/.next
+    environment:
+      # macOS の bind mount でもファイル変更を確実に検知するためポーリングを有効にする
+      - WATCHPACK_POLLING=true
+      - CHOKIDAR_USEPOLLING=true
+      - NEXT_TELEMETRY_DISABLED=1
+
+volumes:
+  node_modules:
+  next_cache:
