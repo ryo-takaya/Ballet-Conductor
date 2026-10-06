@@ -62,3 +62,15 @@ docker compose up --build
 - `Dockerfile` / `compose.yaml`: 開発用のコンテナ定義
 - `node_modules` と `.next` はコンテナ側の名前付きボリュームに置くため、ホストには中身が作られません（空のフォルダだけが見えることがあります）
 - macOS の bind mount でも変更を確実に拾えるよう、ファイル監視はポーリングにしています
+
+## GitHub Pages での公開
+
+`main` ブランチに push すると、GitHub Actions（`.github/workflows/deploy.yml`）が静的サイトとしてビルドし、GitHub Pages に公開します。公開先は `https://<ユーザー名>.github.io/Ballet-Conductor/` です。
+
+初回だけ、リポジトリの Settings → Pages で Source を「GitHub Actions」にしておく必要があります。
+
+公開用のビルドを手元で確かめたいときは、次のコマンドで `out/` に書き出せます。
+
+```sh
+docker compose exec -e NEXT_PUBLIC_BASE_PATH=/Ballet-Conductor web npm run build
+```
