@@ -29,7 +29,7 @@ services:
     environment:
       - PORT=8787
       # 呼び出しを許可するフロントの URL（カンマ区切り）
-      - CORS_ORIGINS=http://localhost:${WEB_PORT:-3100},https://ryo-takaya.github.io
+      - CORS_ORIGINS=http://localhost:${WEB_PORT:-3100}
       - CHOKIDAR_USEPOLLING=true
       # コンテナどうしはサービス名（db）で接続する
       - DB_HOST=db

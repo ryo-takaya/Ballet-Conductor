@@ -15,7 +15,7 @@ stripeWebhook.post("/", async (c) => {
   const rawBody = await c.req.text();
   let event: Stripe.Event;
   try {
-    event = constructWebhookEvent(rawBody, c.req.header("stripe-signature") ?? "");
+    event = await constructWebhookEvent(rawBody, c.req.header("stripe-signature") ?? "");
   } catch {
     return c.json({ error: "署名を確認できませんでした。" }, 400);
   }

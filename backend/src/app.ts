@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { contextStorage } from "hono/context-storage";
 import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
 import { pingDb } from "./db.js";
@@ -14,8 +15,10 @@ import users from "./routes/users.js";
 // アプリ本体。実行環境（Node.js・サーバーレス）に依存しないように、起動処理は index.ts に分けている
 const app = new Hono().basePath("/api");
 
-// フロント（ローカルの開発サーバーと GitHub Pages）からの呼び出しを許可する
-app.use("*", cors({ origin: allowedOrigins }));
+// 処理中のリクエストをどこからでも参照できるようにする（支払い後の戻り先の確認で使う）
+app.use("*", contextStorage());
+// フロントのローカル開発サーバーからの呼び出しを許可する（本番は同じドメインなので CORS は使わない）
+app.use("*", cors({ origin: (origin) => (allowedOrigins().includes(origin) ? origin : null) }));
 
 app.get("/health", async (c) => {
   const dbOk = await pingDb();

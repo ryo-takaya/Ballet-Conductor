@@ -1,3 +1,7 @@
 /node_modules
 /dist
 .env*
+# wrangler（Workers）のローカル用
+.dev.vars*
+/.wrangler
+/dist-worker

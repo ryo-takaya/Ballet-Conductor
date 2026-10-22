@@ -39,7 +39,8 @@
 │   ├── Dockerfile
 │   ├── db/init/        # MySQL の初回起動時に実行する SQL
 │   └── src/
-└── .github/workflows/  # GitHub Pages への公開
+├── docs/deploy.md      # 本番環境（Cloudflare Workers）の準備の手順
+└── .github/workflows/  # Cloudflare Workers へのデプロイ
 ```
 
 フロントとバックエンドは、それぞれ独立したパッケージです。依存関係もそれぞれのフォルダで管理します。
@@ -113,7 +114,7 @@ docker compose up --build
 | DELETE | `/api/users/me/addresses/:id` | 送付先を削除します（デフォルトを消すと、残りの最初の住所がデフォルトに） |
 | GET | `/api/cd-orders` | 自分の CD の依頼の一覧（いまの状態・金額・支払いの状態つき） |
 | GET | `/api/cd-orders/price` | CD 1 枚の料金（`CD_PRICE_JPY`）と、支払いを受け付けられるか（`paymentsEnabled`） |
-| POST | `/api/cd-orders` | CD を依頼します。`{ trackId, shippingAddressId, returnBaseUrl }`。トラックの中身・送付先・いまの料金を写して「支払い待ち」で保存し、Stripe Checkout の URL（`checkoutUrl`）を返します。`returnBaseUrl` は支払い後に戻るフロントの URL（`CORS_ORIGINS` のものだけ） |
+| POST | `/api/cd-orders` | CD を依頼します。`{ trackId, shippingAddressId, returnBaseUrl }`。トラックの中身・送付先・いまの料金を写して「支払い待ち」で保存し、Stripe Checkout の URL（`checkoutUrl`）を返します。`returnBaseUrl` は支払い後に戻るフロントの URL（`CORS_ORIGINS` のものか、API と同じドメインのものだけ） |
 | GET | `/api/cd-orders/:id` | 依頼の詳細と、状態の履歴 |
 | POST | `/api/cd-orders/:id/checkout` | 支払い待ちの依頼の支払いを再開します。`{ returnBaseUrl }`。開いたままの支払い画面があればその URL、期限が切れていれば新しい URL を返します |
 | POST | `/api/cd-orders/:id/cancel` | 依頼を取り消します（「支払い待ち」なら支払い画面を閉じて、「依頼済み」なら Stripe で全額返金して） |
@@ -252,12 +253,11 @@ docker compose exec backend npm test
 - `node_modules` と `.next` はコンテナ側の名前付きボリュームに置くため、ホストには中身が作られません（空のフォルダだけが見えることがあります）
 - macOS の bind mount でも変更を確実に拾えるよう、ファイル監視はポーリングにしています
 
-## GitHub Pages での公開
+## 本番環境（Cloudflare Workers）
 
-`main` ブランチに push すると、GitHub Actions（`.github/workflows/deploy.yml`）が `frontend/` を静的サイトとしてビルドし、GitHub Pages に公開します。公開先は https://ryo-takaya.github.io/Ballet-Conductor/ です。バックエンドは公開されません。
+フロントと API を 1 つの Cloudflare Worker で公開します（DB は TiDB Cloud、Hyperdrive 経由）。`main` ブランチに push すると、GitHub Actions（`.github/workflows/deploy.yml`）がフロントをビルドして Worker ごとデプロイします。プルリクエストでは、型チェックとビルドの確認だけを行います。
 
-公開用のビルドを手元で確かめたいときは、次のコマンドで `frontend/out/` に書き出せます。
+最初の準備（Cloudflare・TiDB Cloud・秘密の値・Stripe の Webhook）は [docs/deploy.md](docs/deploy.md) にまとめています。準備が終わるまでは、GitHub Actions はデプロイせずに確認だけを行います。
 
-```sh
-docker compose exec -e NEXT_PUBLIC_BASE_PATH=/Ballet-Conductor frontend npm run build
-```
+- Worker の入口は `backend/src/worker.ts`、設定は `backend/wrangler.jsonc` です。ローカル開発の入口（`backend/src/index.ts`）とは別で、ルートの定義（`app.ts`）は共通です。
+- Workers では DB の接続をリクエストをまたいで使い回せないため、リクエストごとに接続プールを作ります（`backend/src/db.ts` の `withRequestDb`）。
