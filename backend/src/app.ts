@@ -1,9 +1,12 @@
 import { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import { contextStorage } from "hono/context-storage";
 import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
+import { secureHeaders } from "hono/secure-headers";
 import { pingDb } from "./db.js";
 import { allowedOrigins } from "./origins.js";
+import { authRateLimit } from "./rateLimit.js";
 import cdOrders from "./routes/cdOrders.js";
 import auth from "./routes/auth.js";
 import musics from "./routes/musics.js";
@@ -19,6 +22,17 @@ const app = new Hono().basePath("/api");
 app.use("*", contextStorage());
 // フロントのローカル開発サーバーからの呼び出しを許可する（本番は同じドメインなので CORS は使わない）
 app.use("*", cors({ origin: (origin) => (allowedOrigins().includes(origin) ? origin : null) }));
+// ブラウザ向けの安全のためのヘッダー（JSON しか返さないので、スクリプトなどは一切読ませない）
+app.use("*", secureHeaders({ contentSecurityPolicy: { defaultSrc: ["'none'"], frameAncestors: ["'none'"] } }));
+// 極端に大きなリクエストは受け取らない（いちばん大きいのは Stripe の通知で、数十 KB 程度）
+app.use(
+  "*",
+  bodyLimit({ maxSize: 256 * 1024, onError: (c) => c.json({ error: "送信するデータが大きすぎます。" }, 413) }),
+);
+// パスワードを扱う操作は、同じ接続元からの試し過ぎを止める
+app.use("/auth/login", authRateLimit);
+app.use("/auth/signup", authRateLimit);
+app.use("/users/me/password", authRateLimit);
 
 app.get("/health", async (c) => {
   const dbOk = await pingDb();

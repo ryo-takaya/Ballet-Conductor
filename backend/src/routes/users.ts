@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import type { RowDataPacket } from "mysql2";
 import { z } from "zod";
-import { hashPassword, requireAuth, verifyPassword } from "../auth.js";
+import { createToken, hashPassword, requireAuth, verifyPassword } from "../auth.js";
 import { db } from "../db.js";
 import { validateJson } from "../validate.js";
 import addresses from "./addresses.js";
@@ -70,7 +70,7 @@ users.patch("/me", validateJson(profileSchema), async (c) => {
   return c.json({ user });
 });
 
-// パスワードを変える（今のパスワードが合っているときだけ）
+// パスワードを変える（今のパスワードが合っているときだけ）。ほかの端末のログインは切れる
 users.put("/me/password", validateJson(passwordSchema), async (c) => {
   const { currentPassword, newPassword } = c.req.valid("json");
   const [rows] = await db.execute<RowDataPacket[]>("SELECT password FROM user_passwords WHERE user_id = ?", [
@@ -81,11 +81,10 @@ users.put("/me/password", validateJson(passwordSchema), async (c) => {
   if (!(await verifyPassword(currentPassword, row.password))) {
     return c.json({ error: "今のパスワードが違います。" }, 400);
   }
-  await db.execute("UPDATE user_passwords SET password = ? WHERE user_id = ?", [
-    await hashPassword(newPassword),
-    c.var.userId,
-  ]);
-  return c.json({ ok: true });
+  const passwordHash = await hashPassword(newPassword);
+  await db.execute("UPDATE user_passwords SET password = ? WHERE user_id = ?", [passwordHash, c.var.userId]);
+  // それまでのトークンは使えなくなるので、この端末用に新しいトークンを返す
+  return c.json({ ok: true, token: await createToken(c.var.userId, passwordHash) });
 });
 
 // CD の送付先

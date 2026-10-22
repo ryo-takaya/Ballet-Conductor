@@ -10,19 +10,24 @@ type Edit = { startSecond: number; endSecond: number; tempo: number };
 const MIN_TEMPO = 50;
 const MAX_TEMPO = 150;
 
+// 1 曲に設定できる区間の数の上限（1 区間ごとに DB へ書き込むので、多すぎる送信を止める）
+const MAX_EDITS = 200;
+
 const editsSchema = z
   .object({
-    edits: z.array(
-      z.object({
-        startSecond: z.number().int("秒数は整数にしてください。").min(0, "始まりは0秒以上にしてください。"),
-        endSecond: z.number().int("秒数は整数にしてください。").min(1, "終わりは1秒以上にしてください。"),
-        tempo: z
-          .number()
-          .int("テンポは整数（%）にしてください。")
-          .min(MIN_TEMPO, `テンポは${MIN_TEMPO}%以上にしてください。`)
-          .max(MAX_TEMPO, `テンポは${MAX_TEMPO}%以下にしてください。`),
-      }),
-    ),
+    edits: z
+      .array(
+        z.object({
+          startSecond: z.number().int("秒数は整数にしてください。").min(0, "始まりは0秒以上にしてください。"),
+          endSecond: z.number().int("秒数は整数にしてください。").min(1, "終わりは1秒以上にしてください。"),
+          tempo: z
+            .number()
+            .int("テンポは整数（%）にしてください。")
+            .min(MIN_TEMPO, `テンポは${MIN_TEMPO}%以上にしてください。`)
+            .max(MAX_TEMPO, `テンポは${MAX_TEMPO}%以下にしてください。`),
+        }),
+      )
+      .max(MAX_EDITS, `区間は${MAX_EDITS}個までにしてください。`),
   })
   .refine((v) => v.edits.every((e) => e.endSecond > e.startSecond), {
     message: "区間の終わりは、始まりより後にしてください。",

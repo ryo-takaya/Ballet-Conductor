@@ -22,6 +22,15 @@
     }
   ],
 
+  // ログイン・新規登録・パスワード変更は、同じ接続元から 1 分に 10 回まで
+  "ratelimits": [
+    {
+      "name": "AUTH_RATE_LIMITER",
+      "namespace_id": "1001",
+      "simple": { "limit": 10, "period": 60 }
+    }
+  ],
+
   // 秘密でない設定。JWT_SECRET・STRIPE_SECRET_KEY・STRIPE_WEBHOOK_SECRET は `wrangler secret put` で設定する
   "vars": {
     // CD 1 枚の料金（円、税込・送料込）

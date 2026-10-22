@@ -37,7 +37,7 @@ auth.post("/signup", validate(signupSchema), async (c) => {
     await conn.commit();
 
     const user: AuthUser = { id: userResult.insertId, name, email };
-    return c.json({ token: await createToken(user.id), user }, 201);
+    return c.json({ token: await createToken(user.id, passwordHash), user }, 201);
   } catch (err) {
     await conn.rollback();
     if ((err as { code?: string }).code === "ER_DUP_ENTRY") {
@@ -64,7 +64,7 @@ auth.post("/login", validate(loginSchema), async (c) => {
     return c.json({ error: "メールアドレスまたはパスワードが違います。" }, 401);
   }
   const user: AuthUser = { id: row.id, name: row.name, email: row.email };
-  return c.json({ token: await createToken(user.id), user });
+  return c.json({ token: await createToken(user.id, row.password), user });
 });
 
 // ログイン中の利用者の情報

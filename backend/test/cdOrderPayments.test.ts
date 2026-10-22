@@ -6,7 +6,7 @@ import { after, before, beforeEach, describe, test } from "node:test";
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
 import Stripe from "stripe";
 import app from "../src/app.js";
-import { createToken } from "../src/auth.js";
+import { createToken, hashPassword } from "../src/auth.js";
 import { db } from "../src/db.js";
 import { setStripeForTest, type StripeClient } from "../src/stripe.js";
 
@@ -116,7 +116,13 @@ before(async () => {
     [userId],
   );
   addressId = a.insertId;
-  token = await createToken(userId);
+  const passwordHash = await hashPassword("password123");
+  await db.execute("INSERT INTO user_passwords (user_id, email, password) VALUES (?, ?, ?)", [
+    userId,
+    `payment-test-${userId}@example.com`,
+    passwordHash,
+  ]);
+  token = await createToken(userId, passwordHash);
 });
 
 beforeEach(() => {

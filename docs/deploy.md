@@ -87,3 +87,17 @@ cd frontend && NEXT_PUBLIC_API_URL=/api npm run build && cd ../backend
 printf 'JWT_SECRET=local-only\n' > .dev.vars
 CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE="mysql://ballet:ballet@127.0.0.1:3307/ballet_conductor" npm run dev:worker
 ```
+
+## セキュリティの設定
+
+コードの側で入れてあるもの：
+
+- ログイン・新規登録・パスワード変更は、同じ接続元から 1 分に 10 回まで（`wrangler.jsonc` の `ratelimits`、`backend/src/rateLimit.ts`）
+- パスワードを変えると、それまでに発行したログインのトークンは使えなくなる
+- ページには `frontend/public/_headers`、API には `secureHeaders` でセキュリティ用のヘッダーを付ける
+- API が受け取るデータは 256KB まで
+
+アカウントの側で必ず行うこと：
+
+- Cloudflare・TiDB Cloud・Stripe・GitHub のすべてで 2 段階認証を有効にする
+- Cloudflare の API トークンは「Edit Cloudflare Workers」の権限だけにし、GitHub の Secrets 以外には置かない
