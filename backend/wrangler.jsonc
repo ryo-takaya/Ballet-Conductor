@@ -1,0 +1,41 @@
+// 本番（Cloudflare Workers）の設定。フロントの静的ファイルと API を 1 つの Worker で配信する。
+// デプロイは GitHub Actions（.github/workflows/deploy.yml）が main への push で行う
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "ballet-conductor",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-10-01",
+  // mysql2・bcryptjs・AsyncLocalStorage など Node.js の機能を使うため
+  "compatibility_flags": ["nodejs_compat"],
+
+  // フロント（Next.js の静的書き出し）。ファイルがあればそれを返し、なければ Worker（/api/*）に回す
+  "assets": {
+    "directory": "../frontend/out",
+    "not_found_handling": "404-page"
+  },
+
+  // DB（TiDB Cloud）への接続を中継する Hyperdrive。id は `wrangler hyperdrive create` で作ったものに置き換える
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      "id": "REPLACE_WITH_HYPERDRIVE_ID"
+    }
+  ],
+
+  // ログイン・新規登録・パスワード変更は、同じ接続元から 1 分に 10 回まで
+  "ratelimits": [
+    {
+      "name": "AUTH_RATE_LIMITER",
+      "namespace_id": "1001",
+      "simple": { "limit": 10, "period": 60 }
+    }
+  ],
+
+  // 秘密でない設定。JWT_SECRET・STRIPE_SECRET_KEY・STRIPE_WEBHOOK_SECRET は `wrangler secret put` で設定する
+  "vars": {
+    // CD 1 枚の料金（円、税込・送料込）
+    "CD_PRICE_JPY": "3000"
+  },
+
+  "observability": { "enabled": true }
+}

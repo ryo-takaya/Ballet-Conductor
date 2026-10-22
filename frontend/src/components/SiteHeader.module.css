@@ -1,0 +1,97 @@
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 14px;
+  margin-bottom: 20px;
+}
+
+.brand {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.ribbon,
+.ribbonTail,
+.ribbonKnot {
+  stroke: var(--accent-deep);
+}
+
+.ribbon {
+  fill: var(--accent-soft);
+}
+
+.ribbonTail {
+  fill: var(--sub-soft);
+}
+
+.ribbonKnot {
+  fill: var(--accent);
+}
+
+.logo {
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+}
+
+.title {
+  font-size: clamp(1.5rem, 5vw, 2rem);
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  color: var(--accent-deep);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.navRow {
+  flex-basis: 100%;
+  display: flex;
+  justify-content: flex-start;
+}
+
+.navRow:empty {
+  display: none;
+}
+
+.lead {
+  flex-basis: 100%;
+  color: var(--muted);
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+@media (max-width: 480px) {
+  .header {
+    column-gap: 8px;
+  }
+
+  .brand {
+    gap: 8px;
+  }
+
+  .logo {
+    width: 36px;
+    height: 36px;
+  }
+
+  .title {
+    font-size: 1.05rem;
+  }
+
+  .actions {
+    gap: 8px;
+  }
+}

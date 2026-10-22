@@ -1,0 +1,286 @@
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.card {
+  padding: 20px;
+  border-radius: 24px;
+  border: 2px solid var(--line);
+  background: var(--card);
+  box-shadow: 0 6px 0 var(--shadow);
+}
+
+.cardTitle {
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
+.trackTitle {
+  font-size: clamp(1.3rem, 5vw, 1.7rem);
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.subTitle {
+  margin: 18px 0 10px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--accent-deep);
+}
+
+.hint,
+.empty {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.createForm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.createForm .field {
+  flex: 1;
+  min-width: 220px;
+  margin-top: 0;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.label {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.input {
+  min-height: 46px;
+  padding: 0 14px;
+  border-radius: 14px;
+  border: 2px solid var(--line);
+  background: var(--button-bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 1rem;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.primary,
+.primarySmall,
+.secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.primary {
+  min-height: 46px;
+  padding: 0 22px;
+  border: 2px solid var(--fill-primary-press);
+  background: var(--fill-primary);
+  color: var(--on-accent);
+  box-shadow: 0 3px 0 var(--fill-primary-press);
+}
+
+.primarySmall {
+  min-height: 40px;
+  padding: 0 16px;
+  border: 2px solid var(--fill-primary-press);
+  background: var(--fill-primary);
+  color: var(--on-accent);
+}
+
+.primary:hover:not(:disabled),
+.primarySmall:hover:not(:disabled) {
+  background: var(--fill-primary-press);
+}
+
+.secondary {
+  min-height: 40px;
+  padding: 0 16px;
+  border: 2px solid var(--line);
+  background: var(--button-bg);
+  color: var(--text);
+}
+
+.secondary:hover:not(:disabled) {
+  background: var(--sub-soft);
+}
+
+.primary:disabled,
+.primarySmall:disabled,
+.secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.error {
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.trackList,
+.musicList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+  list-style: none;
+}
+
+.trackItem {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px 12px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 2px solid var(--line);
+  background: var(--wave-bg);
+  color: inherit;
+  text-decoration: none;
+}
+
+.trackItem:hover {
+  border-color: var(--accent);
+}
+
+.trackName {
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.trackMeta {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.musicItem {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px 10px 16px;
+  border-radius: 16px;
+  border: 2px solid var(--line);
+  background: var(--wave-bg);
+}
+
+.musicIndex {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.musicName {
+  flex: 1 1 160px;
+  min-width: 0;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.back {
+  align-self: flex-start;
+  color: var(--accent-deep);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.back:hover {
+  text-decoration: underline;
+}
+
+.musicItemDragging {
+  position: relative;
+  z-index: 1;
+  border-color: var(--accent);
+  box-shadow: 0 8px 20px rgba(14, 60, 100, 0.18);
+}
+
+.dragHandle {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 40px;
+  flex-shrink: 0;
+  margin-left: -6px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 800;
+  letter-spacing: -2px;
+  cursor: grab;
+  touch-action: none;
+}
+
+.dragHandle:hover {
+  background: var(--sub-soft);
+  color: var(--text);
+}
+
+.dragHandle:active {
+  cursor: grabbing;
+}
+
+a.primarySmall {
+  text-decoration: none;
+}
+
+.musicActions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.musicItem > .primarySmall,
+.musicItem > .secondary {
+  margin-left: auto;
+}
+
+.trackHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.orderLink {
+  text-decoration: none;
+}

@@ -1,21 +1,90 @@
 services:
-  web:
-    build: .
+  frontend:
+    build: ./frontend
     ports:
       # ホスト側のポートは WEB_PORT で変更可能（3000 は他のコンテナと衝突しやすいので 3100 を既定に）
       - "${WEB_PORT:-3100}:3000"
     volumes:
       # ソースはホストからマウントしてホットリロードを効かせる
-      - .:/app
+      - ./frontend:/app
       # node_modules と .next はコンテナ側の名前付きボリュームに置き、ホストを汚さない
-      - node_modules:/app/node_modules
-      - next_cache:/app/.next
+      - frontend_node_modules:/app/node_modules
+      - frontend_next:/app/.next
     environment:
       # macOS の bind mount でもファイル変更を確実に検知するためポーリングを有効にする
       - WATCHPACK_POLLING=true
       - CHOKIDAR_USEPOLLING=true
       - NEXT_TELEMETRY_DISABLED=1
+      # ブラウザから呼び出すバックエンド API の URL
+      - NEXT_PUBLIC_API_URL=http://localhost:${API_PORT:-8787}/api
+
+  backend:
+    build: ./backend
+    ports:
+      # ホスト側のポートは API_PORT で変更可能
+      - "${API_PORT:-8787}:8787"
+    volumes:
+      - ./backend:/app
+      - backend_node_modules:/app/node_modules
+    environment:
+      - PORT=8787
+      # 呼び出しを許可するフロントの URL（カンマ区切り）
+      - CORS_ORIGINS=http://localhost:${WEB_PORT:-3100}
+      - CHOKIDAR_USEPOLLING=true
+      # コンテナどうしはサービス名（db）で接続する
+      - DB_HOST=db
+      - DB_PORT=3306
+      - DB_NAME=${MYSQL_DATABASE:-ballet_conductor}
+      - DB_USER=${MYSQL_USER:-ballet}
+      - DB_PASSWORD=${MYSQL_PASSWORD:-ballet}
+      # ログイン用トークンの署名鍵（開発用）
+      - JWT_SECRET=${JWT_SECRET:-dev-only-secret-change-me}
+      # CD 1 枚の料金（円、税込・送料込）
+      - CD_PRICE_JPY=${CD_PRICE_JPY:-3000}
+      # Stripe（テストモード）のキー。.env で設定する。空のままだと「支払いに進む」がエラーになるだけで、ほかの機能は動く
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # ローカルで Stripe の Webhook を受けるための中継（任意）。`docker compose --profile stripe up` のときだけ起動する
+  # Stripe から届いた通知を、署名をつけたまま backend の /api/stripe/webhook に転送する
+  stripe-cli:
+    image: stripe/stripe-cli:v1.51.1
+    profiles: ["stripe"]
+    command: ["listen", "--forward-to", "http://backend:8787/api/stripe/webhook", "--events", "checkout.session.completed,checkout.session.async_payment_succeeded,checkout.session.expired"]
+    environment:
+      - STRIPE_API_KEY=${STRIPE_SECRET_KEY:-}
+    depends_on:
+      - backend
+
+  db:
+    image: mysql:8.4
+    ports:
+      # ホストから接続するときのポート（3306 は他のコンテナと衝突しやすいので 3307 を既定に）
+      - "${DB_PORT:-3307}:3306"
+    environment:
+      # 開発用の初期値。必要ならトップレベルの .env で上書きする
+      - MYSQL_DATABASE=${MYSQL_DATABASE:-ballet_conductor}
+      - MYSQL_USER=${MYSQL_USER:-ballet}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-ballet}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-root}
+      - TZ=Asia/Tokyo
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_0900_ai_ci"]
+    volumes:
+      # データはコンテナを作り直しても残るように名前付きボリュームに置く
+      - db_data:/var/lib/mysql
+      # 初回起動時（ボリュームが空のとき）に、ここの .sql をファイル名順に実行する
+      - ./backend/db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u$$MYSQL_USER -p$$MYSQL_PASSWORD --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
 volumes:
-  node_modules:
-  next_cache:
+  frontend_node_modules:
+  frontend_next:
+  backend_node_modules:
+  db_data:
