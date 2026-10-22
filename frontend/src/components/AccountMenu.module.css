@@ -1,0 +1,102 @@
+.placeholder {
+  width: 96px;
+  height: 40px;
+}
+
+.loginLink,
+.logout {
+  display: inline-flex;
+  white-space: nowrap;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 2px solid var(--line);
+  background: var(--button-bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.loginLink {
+  background: var(--fill-primary);
+  border-color: var(--fill-primary-press);
+  color: var(--on-accent);
+}
+
+.loginLink:hover {
+  background: var(--fill-primary-press);
+}
+
+.logout:hover {
+  background: var(--sub-soft);
+}
+
+
+.name {
+  display: inline-block;
+  line-height: 42px;
+  max-width: 14em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.navLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: 46px;
+  padding: 0 20px;
+  border-radius: 999px;
+  border: 2px solid var(--line);
+  background: var(--button-bg);
+  color: var(--text);
+  font-size: 1.05rem;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: 0 3px 0 var(--line);
+}
+
+.navLink:hover {
+  background: var(--sub-soft);
+}
+
+.navLinkActive {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+  box-shadow: 0 3px 0 var(--accent);
+}
+
+@media (max-width: 480px) {
+  .loginLink,
+  .logout {
+    padding: 0 12px;
+    font-size: 0.85rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .navLink {
+    min-height: 44px;
+    padding: 0 14px;
+    font-size: 0.95rem;
+  }
+
+  .name {
+    line-height: 40px;
+  }
+
+  .nav {
+    gap: 8px;
+  }
+}

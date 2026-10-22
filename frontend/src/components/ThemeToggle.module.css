@@ -1,0 +1,51 @@
+.toggle {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 999px;
+  border: 2px solid var(--line);
+  background: var(--card);
+}
+
+.option {
+  min-height: 34px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.active {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.compact {
+  display: none;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 2px solid var(--line);
+  background: var(--card);
+  color: var(--text);
+  font: inherit;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+@media (max-width: 480px) {
+  .toggle {
+    display: none;
+  }
+
+  .compact {
+    display: inline-grid;
+    place-items: center;
+  }
+}

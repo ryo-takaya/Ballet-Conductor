@@ -1,0 +1,42 @@
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.card {
+  padding: 20px;
+  border-radius: 24px;
+  border: 2px solid var(--line);
+  background: var(--card);
+}
+
+.error {
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.back {
+  display: inline-block;
+  margin-top: 4px;
+  color: var(--accent-deep);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.card .back {
+  margin-top: 14px;
+}
+
+.back:hover {
+  text-decoration: underline;
+}
+
+.loading {
+  padding: 48px 16px;
+  text-align: center;
+  color: var(--muted);
+}
